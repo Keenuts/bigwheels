@@ -59,6 +59,8 @@ struct GeometryOptions
     uint32_t                      vertexBindingCount                      = 0;
     grfx::VertexBinding           vertexBindings[PPX_MAX_VERTEX_BINDINGS] = {};
     grfx::PrimitiveTopology       primtiveTopology                        = grfx::PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    uint32_t                      maxIndexCount                           = 0;
+    uint32_t                      maxVertexCount                          = 0;
 
     // Creates a create info objects with a UINT16 or UINT32 index
     // type and position vertex attribute.
@@ -101,6 +103,11 @@ struct GeometryOptions
     GeometryOptions& AddTexCoord(grfx::Format format = grfx::FORMAT_R32G32_FLOAT);
     GeometryOptions& AddTangent(grfx::Format format = grfx::FORMAT_R32G32B32A32_FLOAT);
     GeometryOptions& AddBitangent(grfx::Format format = grfx::FORMAT_R32G32B32_FLOAT);
+
+    // NOTE: Setting max index/vertex counts will set up index/vertex
+    // buffers for "Use #2"
+    GeometryOptions& MaxIndexCount(uint32_t count);
+    GeometryOptions& MaxVertexCount(uint32_t count);
 
 private:
     GeometryOptions& AddAttribute(grfx::VertexSemantic semantic, grfx::Format format);
@@ -146,8 +153,14 @@ public:
     {
     public:
         Buffer() {}
-        Buffer(BufferType type, uint32_t elementSize)
-            : mType(type), mElementSize(elementSize) {}
+        Buffer(BufferType type, uint32_t elementSize, uint32_t knownElementCount = 0)
+            : mType(type), mElementSize(elementSize)
+        {
+            if (knownElementCount > 0) {
+                // Pre-determined final size of buffer
+                mData.resize(knownElementCount * mElementSize);
+            }
+        }
         ~Buffer() {}
 
         BufferType  GetType() const { return mType; }
@@ -156,6 +169,11 @@ public:
         char*       GetData() { return DataPtr(mData); }
         const char* GetData() const { return DataPtr(mData); }
         uint32_t    GetElementCount() const;
+        uint32_t    GetSizeOfData() const;
+
+        // Append() will automatically adjust mUsedSize, but it may need to be
+        // manually adjusted if Overwrite() is used
+        void SetOffset(uint32_t offset) { mUsedSize = offset; }
 
         // Trusts that calling code is well behaved :)
         template <typename T>
@@ -179,9 +197,25 @@ public:
             mUsedSize += sizeOfValues;
         }
 
+        // If Overwrite is used to write new data, calling code will also
+        // have to SetOffset() appropriately
+        //
+        template <typename T>
+        void Overwrite(const T& value, size_t offset)
+        {
+            uint32_t sizeOfValue = static_cast<uint32_t>(sizeof(T));
+
+            PPX_ASSERT_MSG(offset + sizeOfValue <= GetSize(), "Attempting to overwrite with value of size " << sizeOfValue << " at offset " << offset << " will overflow the buffer of size " << GetSize());
+
+            // Copy data
+            const void* pSrc = &value;
+            void*       pDst = mData.data() + offset;
+            memcpy(pDst, pSrc, sizeOfValue);
+        }
+
     private:
-        BufferType        mType        = BUFFER_TYPE_VERTEX;
-        uint32_t          mElementSize = 0;
+        BufferType        mType              = BUFFER_TYPE_VERTEX;
+        uint32_t          mElementSize       = 0;
         size_t            mUsedSize    = 0;
         std::vector<char> mData;
     };
@@ -239,7 +273,7 @@ public:
     // Append a chunk of UINT32 indices
     void AppendIndicesU32(uint32_t count, const uint32_t* pIndices);
 
-    // Append multiple attributes at once
+    // Append multiple attributes at once, returns the total number of vertices whose data is currently stored
     //
     uint32_t AppendVertexData(const TriMeshVertexData& vtx);
     uint32_t AppendVertexData(const TriMeshVertexDataCompressed& vtx);
@@ -251,6 +285,10 @@ public:
     void AppendTriangle(const TriMeshVertexData& vtx0, const TriMeshVertexData& vtx1, const TriMeshVertexData& vtx2);
     void AppendEdge(const WireMeshVertexData& vtx0, const WireMeshVertexData& vtx1);
 
+    // Directly overwrites index/vertex buffers
+    void SetIndexBuffer(const Geometry::Buffer* indexBuffer) { mIndexBuffer = *indexBuffer; }
+    void SetVertexBuffer(const Geometry::Buffer* vertexBuffer, size_t vertexBufferIndex) { mVertexBuffers[vertexBufferIndex] = *vertexBuffer; }
+
 private:
     // This is intialized to point to a static var of derived class of VertexDataProcessorBase
     // which is shared by geometry objects, it is not supposed to be deleted
@@ -260,7 +298,7 @@ private:
     Geometry::Buffer                                      mIndexBuffer;
     std::vector<Geometry::Buffer>                         mVertexBuffers;
     uint32_t                                              mPositionBufferIndex  = PPX_VALUE_IGNORED;
-    uint32_t                                              mNormaBufferIndex     = PPX_VALUE_IGNORED;
+    uint32_t                                              mNormalBufferIndex    = PPX_VALUE_IGNORED;
     uint32_t                                              mColorBufferIndex     = PPX_VALUE_IGNORED;
     uint32_t                                              mTexCoordBufferIndex  = PPX_VALUE_IGNORED;
     uint32_t                                              mTangentBufferIndex   = PPX_VALUE_IGNORED;
