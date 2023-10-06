@@ -153,13 +153,10 @@ public:
     {
     public:
         Buffer() {}
-        Buffer(BufferType type, uint32_t elementSize, uint32_t knownElementCount = 0)
+        Buffer(BufferType type, uint32_t elementSize, uint32_t maxElementCount = 0)
             : mType(type), mElementSize(elementSize)
         {
-            if (knownElementCount > 0) {
-                // Pre-determined final size of buffer
-                mData.resize(knownElementCount * mElementSize);
-            }
+            mData.resize(maxElementCount * mElementSize);
         }
         ~Buffer() {}
 
@@ -169,7 +166,7 @@ public:
         char*       GetData() { return DataPtr(mData); }
         const char* GetData() const { return DataPtr(mData); }
         uint32_t    GetElementCount() const;
-        uint32_t    GetSizeOfData() const;
+        uint32_t    GetDataSize() const;
 
         // Append() will automatically adjust mUsedSize, but it may need to be
         // manually adjusted if Overwrite() is used

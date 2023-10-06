@@ -61,9 +61,9 @@ protected:
     {
         if (bufferIndex != PPX_VALUE_IGNORED) {
             PPX_ASSERT_MSG((bufferIndex >= 0) && (bufferIndex < pGeom->mVertexBuffers.size()), "buffer index is not valid");
-            uint32_t originalSize = pGeom->mVertexBuffers[bufferIndex].GetSizeOfData();
+            uint32_t originalSize = pGeom->mVertexBuffers[bufferIndex].GetDataSize();
             pGeom->mVertexBuffers[bufferIndex].Append(data);
-            return pGeom->mVertexBuffers[bufferIndex].GetSizeOfData() - originalSize;
+            return pGeom->mVertexBuffers[bufferIndex].GetDataSize() - originalSize;
         }
         return 0;
     }
@@ -625,7 +625,7 @@ uint32_t Geometry::Buffer::GetElementCount() const
     return count;
 }
 
-uint32_t Geometry::Buffer::GetSizeOfData() const
+uint32_t Geometry::Buffer::GetDataSize() const
 {
     return mUsedSize;
 }
